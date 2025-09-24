@@ -1,18 +1,20 @@
 # Museum Analytics: Visitor-Population Correlation Analysis
 
-A comprehensive data engineering solution that analyzes the correlation between museum visitor numbers and city population using linear regression. This project extracts museum data from Wikipedia, combines it with city population data, and builds a machine learning model to understand the relationship.
+A comprehensive data engineering solution that analyzes the correlation between museum visitor numbers and city population using machine learning. This project extracts museum data from Wikipedia, combines it with city population data, and builds a linear regression model to understand the relationship between city size and museum attendance.
 
 ## 🎯 Project Overview
 
-This project addresses the following requirements:
-- Extract museum data from Wikipedia API (museums with >2M annual visitors)
-- Integrate city population data from multiple sources
-- Build a harmonized database for analysis
-- Create a linear regression ML model
-- Provide visualizations and insights
-- Package everything in Docker containers
+This project demonstrates a complete data engineering workflow:
 
-## 🏗️ Architecture
+- **Data Extraction**: Scrapes museum data from Wikipedia API (museums with >2M annual visitors)
+- **Data Integration**: Combines museum data with city population data from multiple sources
+- **Data Processing**: Harmonizes and cleans data for analysis
+- **Machine Learning**: Builds a linear regression model with log transformation
+- **Database**: Stores data in SQLite for querying and analysis
+- **Visualization**: Creates comprehensive plots and interactive Jupyter notebook
+- **Containerization**: Docker setup for easy deployment and reproducibility
+
+## 🏗️ Project Architecture
 
 ```
 museum_analytics/
@@ -27,12 +29,12 @@ museum_analytics/
 │   └── database/
 │       └── db_manager.py           # Database operations
 ├── notebooks/
-│   └── museum_analysis.ipynb       # Jupyter notebook
-├── data/                           # Data storage
-├── models/                         # Model storage
+│   └── museum_analysis.ipynb       # Interactive analysis
+├── data/                           # Generated data files
+├── models/                         # Trained models
 ├── plots/                          # Visualization outputs
-├── Dockerfile                      # Docker configuration
-├── docker-compose.yml             # Docker Compose setup
+├── Dockerfile                      # Container configuration
+├── docker-compose.yml             # Orchestration
 └── run_pipeline.py                # Main execution script
 ```
 
@@ -42,12 +44,14 @@ museum_analytics/
 
 ```bash
 # Clone and navigate to the project
+git clone <repository-url>
 cd museum-analytics
 
 # Build and run with Docker Compose
 docker-compose up --build
 
 # Access Jupyter Lab at http://localhost:8888
+# Open museum_analytics/notebooks/museum_analysis.ipynb
 ```
 
 ### Option 2: Manual Setup
@@ -72,56 +76,49 @@ python -m museum_analytics.src.models.regression_model
 ## 📊 Data Sources
 
 ### Museum Data
-- **Source**: Wikipedia API
+- **Source**: Wikipedia API (List of most visited museums)
 - **Criteria**: Museums with >2,000,000 annual visitors
 - **Fields**: Museum name, city, country, annual visitors, year
+- **Extraction**: Robust web scraping with fallback parsing methods
 
 ### Population Data
 - **Sources**: 
   - REST Countries API (country-level data)
   - Manual city-specific data for major cities
 - **Fields**: City name, country, population
+- **Coverage**: Major metropolitan areas worldwide
 
 ## 🔧 Technical Implementation
 
-### Data Extraction
-- **Wikipedia Scraper**: Uses BeautifulSoup to parse museum tables
-- **Population Extractor**: Combines API data with manual mappings
-- **Error Handling**: Robust error handling and logging
+### Data Pipeline
+1. **Wikipedia Scraper**: Extracts museum data using BeautifulSoup with robust error handling
+2. **Population Extractor**: Combines API data with manual mappings for comprehensive coverage
+3. **Data Harmonizer**: Matches museum cities with population data using fuzzy matching
+4. **Database Manager**: SQLite database for data persistence and complex queries
+5. **Regression Model**: Linear regression with log transformation for better fit
 
-### Data Processing
-- **Harmonization**: Matches museum cities with population data
-- **Normalization**: Standardizes city names for better matching
-- **Database**: SQLite for data storage and querying
-
-### Machine Learning
-- **Model**: Linear regression using scikit-learn
-- **Features**: City population (independent variable)
-- **Target**: Annual museum visitors (dependent variable)
+### Machine Learning Model
+- **Algorithm**: Linear regression with log1p transformation
+- **Features**: City population (log-transformed)
+- **Target**: Annual museum visitors (log-transformed)
 - **Evaluation**: R², MSE, MAE, correlation coefficient
+- **Preprocessing**: StandardScaler for feature normalization
 
-### Visualization
-- **Plots**: Scatter plots, residual analysis, Q-Q plots
-- **Notebook**: Interactive Jupyter notebook for analysis
-- **Output**: High-quality plots saved to files
+### Key Features
+- **Robust Error Handling**: Comprehensive logging and graceful failure handling
+- **Scalable Architecture**: Modular design for easy extension
+- **Data Validation**: Quality checks throughout the pipeline
+- **Interactive Analysis**: Jupyter notebook for exploration and visualization
+- **Docker Containerization**: Consistent deployment environment
 
-## 📈 Key Features
-
-1. **Automated Data Pipeline**: End-to-end data extraction and processing
-2. **Robust Error Handling**: Comprehensive logging and error management
-3. **Scalable Architecture**: Modular design for easy extension
-4. **Docker Containerization**: Consistent deployment environment
-5. **Interactive Analysis**: Jupyter notebook for exploration
-6. **Database Integration**: SQLite for data persistence and querying
-7. **Visualization Suite**: Multiple plot types for analysis
-
-## 🎯 Model Performance
+## 📈 Model Performance
 
 The linear regression model provides insights into the relationship between city population and museum attendance:
 
-- **Correlation**: Measures the strength of the relationship
-- **R² Score**: Indicates how well the model explains the variance
+- **Correlation**: Measures the strength of the linear relationship
+- **R² Score**: Indicates how well the model explains the variance in visitor numbers
 - **Predictions**: Estimates visitor numbers for different city sizes
+- **Log Transformation**: Improves model fit for count data
 
 ## 📋 Requirements
 
@@ -132,14 +129,15 @@ The linear regression model provides insights into the relationship between city
 - 1GB disk space
 
 ### Python Dependencies
-- pandas >= 2.1.4
-- numpy >= 1.24.3
-- scikit-learn >= 1.3.2
-- matplotlib >= 3.8.2
-- seaborn >= 0.13.0
+- pandas >= 2.2
+- numpy >= 2.0
+- scikit-learn >= 1.5.2
+- matplotlib >= 3.9.0
+- seaborn == 0.13.0
 - requests >= 2.31.0
 - beautifulsoup4 >= 4.12.2
 - jupyter >= 1.0.0
+- lxml >= 5.3.0
 
 ## 🔍 Usage Examples
 
@@ -154,7 +152,7 @@ museums = scraper.extract_museum_data()
 
 # Train model
 model = MuseumRegressionModel()
-metrics = model.train("harmonized_museum_data.csv")
+metrics = model.train("data/harmonized_museum_data.csv")
 
 # Make predictions
 prediction = model.predict(5_000_000)  # City with 5M population
@@ -165,7 +163,7 @@ print(f"Predicted visitors: {prediction:,.0f}")
 ```python
 from museum_analytics.src.database.db_manager import DatabaseManager
 
-db = DatabaseManager("museum_analytics.db")
+db = DatabaseManager("data/museum_analytics.db")
 top_museums = db.get_top_museums(10)
 stats = db.get_correlation_stats()
 ```
@@ -180,6 +178,9 @@ The pipeline generates several output files:
 - `data/museum_analytics.db`: SQLite database
 - `models/museum_regression_model.pkl`: Trained ML model
 - `plots/`: Visualization files (PNG format)
+  - `regression_plot.png`: Scatter plot with regression line
+  - `residual_plot.png`: Residual analysis
+  - `residual_distribution.png`: Distribution of residuals
 
 ## 🎯 Business Insights
 
@@ -189,6 +190,7 @@ The analysis reveals:
 2. **Visitor Ratios**: Average percentage of city population that visits museums
 3. **Top Performers**: Museums with highest visitor-population ratios
 4. **Predictive Power**: Model accuracy for visitor predictions
+5. **Geographic Patterns**: Regional differences in museum attendance
 
 ## 🔧 Customization
 
@@ -223,18 +225,18 @@ export LOG_LEVEL=DEBUG
 python run_pipeline.py
 ```
 
-## 📚 Rationale for Design Choices
+## 📚 Design Decisions
 
 ### Technology Stack
-- **Python**: Excellent for data science and ML
-- **SQLite**: Lightweight database for MVP
-- **Docker**: Consistent deployment environment
-- **Jupyter**: Interactive analysis and visualization
+- **Python**: Excellent ecosystem for data science and ML
+- **SQLite**: Lightweight database perfect for MVP and analysis
+- **Docker**: Ensures consistent deployment across environments
+- **Jupyter**: Interactive analysis and visualization platform
 
 ### Architecture Decisions
 - **Modular Design**: Easy to extend and maintain
-- **Error Handling**: Robust pipeline execution
-- **Data Validation**: Quality checks throughout
+- **Error Handling**: Robust pipeline execution with comprehensive logging
+- **Data Validation**: Quality checks throughout the pipeline
 - **Scalability**: Designed for future enhancements
 
 ### Data Sources
@@ -244,11 +246,12 @@ python run_pipeline.py
 
 ## 🚀 Future Enhancements
 
-1. **Additional Features**: Tourism data, cultural indicators
-2. **Advanced Models**: Deep learning, ensemble methods
-3. **Real-time Updates**: Automated data refresh
-4. **Web Interface**: REST API and dashboard
+1. **Additional Features**: Tourism data, cultural indicators, economic factors
+2. **Advanced Models**: Deep learning, ensemble methods, time series analysis
+3. **Real-time Updates**: Automated data refresh and model retraining
+4. **Web Interface**: REST API and interactive dashboard
 5. **Geographic Analysis**: Spatial clustering and mapping
+6. **Multi-language Support**: International museum data
 
 ## 📄 License
 
