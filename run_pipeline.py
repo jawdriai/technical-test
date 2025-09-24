@@ -8,6 +8,7 @@ import sys
 import os
 from pathlib import Path
 import logging
+import numpy as np
 
 # Add the src directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'museum_analytics', 'src'))
@@ -152,22 +153,40 @@ def generate_insights(harmonized_df, metrics):
     """Generate insights from the analysis."""
     logger.info("INSIGHTS AND RECOMMENDATIONS:")
     logger.info("-" * 30)
-    
-    # Data quality insights
+
+    # Resolve population column alias
+    pop_col = None
+    for cand in ['city_population', 'population', 'city_pop']:
+        if cand in harmonized_df.columns:
+            pop_col = cand
+            break
+    if pop_col is None:
+        raise KeyError(
+            "No population column found in harmonized data. "
+            f"Columns present: {list(harmonized_df.columns)}"
+        )
+
+    # Resolve city column alias
+    city_col = None
+    for cand in ['city', 'city_museum', 'city_name']:
+        if cand in harmonized_df.columns:
+            city_col = cand
+            break
+
+    # 1) Data quality insights
     total_museums = len(harmonized_df)
-    museums_with_population = len(harmonized_df.dropna(subset=['city_population']))
-    data_coverage = (museums_with_population / total_museums) * 100
-    
+    museums_with_population = len(harmonized_df.dropna(subset=[pop_col]))
+    data_coverage = (museums_with_population / total_museums) * 100 if total_museums else 0.0
     logger.info(f"1. Data Coverage: {data_coverage:.1f}% of museums have population data")
-    
-    # Correlation insights
-    correlation = metrics['correlation']
-    r2_score = metrics['test_r2']
-    
-    logger.info(f"2. Correlation Analysis:")
+
+    # 2) Correlation insights
+    correlation = metrics.get('correlation', float('nan'))
+    r2_score_val = metrics.get('test_r2', float('nan'))
+
+    logger.info("2. Correlation Analysis:")
     logger.info(f"   - Correlation coefficient: {correlation:.4f}")
-    logger.info(f"   - R² score: {r2_score:.4f}")
-    
+    logger.info(f"   - R² score: {r2_score_val:.4f}")
+
     if correlation > 0.7:
         correlation_strength = "strong"
     elif correlation > 0.5:
@@ -176,35 +195,39 @@ def generate_insights(harmonized_df, metrics):
         correlation_strength = "weak"
     else:
         correlation_strength = "very weak"
-    
     logger.info(f"   - {correlation_strength.title()} positive correlation between city size and museum visitors")
-    
-    # Model performance insights
-    logger.info(f"3. Model Performance:")
-    logger.info(f"   - Model explains {r2_score*100:.1f}% of the variance in museum visitors")
-    logger.info(f"   - Mean Absolute Error: {metrics['test_mae']:,.0f} visitors")
-    logger.info(f"   - Root Mean Square Error: {metrics['test_mse']**0.5:,.0f} visitors")
-    
-    # Business insights
-    analysis_df = harmonized_df.dropna(subset=['city_population', 'annual_visitors'])
-    if not analysis_df.empty:
+
+    # 3) Model performance insights
+    logger.info("3. Model Performance:")
+    test_mse = metrics.get('test_mse', float('nan'))
+    rmse = (test_mse ** 0.5) if not np.isnan(test_mse) else float('nan')
+    logger.info(f"   - Model explains {r2_score_val*100:.1f}% of the variance in museum visitors")
+    logger.info(f"   - Mean Absolute Error: {metrics.get('test_mae', float('nan')):,.0f} visitors")
+    logger.info(f"   - Root Mean Square Error: {rmse:,.0f} visitors")
+
+    # 4) Business insights
+    analysis_df = harmonized_df.dropna(subset=[pop_col, 'annual_visitors'])
+    logger.info("4. Business Insights:")
+    if not analysis_df.empty and 'visitor_population_ratio' in analysis_df.columns:
         avg_ratio = analysis_df['visitor_population_ratio'].mean()
-        logger.info(f"4. Business Insights:")
         logger.info(f"   - Average visitor-population ratio: {avg_ratio:.4f}")
         logger.info(f"   - Museums attract approximately {avg_ratio*100:.2f}% of city population annually")
-        
+
         # Top performers
         top_performers = analysis_df.nlargest(3, 'visitor_population_ratio')
-        logger.info(f"   - Top performing museums (by ratio):")
+        logger.info("   - Top performing museums (by ratio):")
         for _, row in top_performers.iterrows():
-            logger.info(f"     * {row['museum_name']} ({row['city']}): {row['visitor_population_ratio']:.4f}")
-    
-    # Recommendations
-    logger.info(f"5. Recommendations:")
+            city_txt = row[city_col] if city_col and city_col in row else "N/A"
+            logger.info(f"     * {row['museum_name']} ({city_txt}): {row['visitor_population_ratio']:.4f}")
+    else:
+        logger.info("   - Not enough data to compute visitor-population ratios.")
+
+    # 5) Recommendations
+    logger.info("5. Recommendations:")
     logger.info(f"   - City population is a {correlation_strength} predictor of museum attendance")
-    logger.info(f"   - Museums in larger cities tend to have higher visitor numbers")
-    logger.info(f"   - Consider city size when planning museum capacity and marketing strategies")
-    logger.info(f"   - Further analysis could include factors like tourism, cultural significance, and museum type")
+    logger.info("   - Museums in larger cities tend to have higher visitor numbers")
+    logger.info("   - Consider city size when planning museum capacity and marketing strategies")
+    logger.info("   - Further analysis could include factors like tourism, cultural significance, and museum type")
 
 
 if __name__ == "__main__":

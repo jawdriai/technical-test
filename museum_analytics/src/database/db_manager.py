@@ -66,14 +66,14 @@ class DatabaseManager:
         query = """
         SELECT 
             museum_name,
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
             annual_visitors,
-            city_population,
+            COALESCE(city_population, population)     AS city_population,
             visitor_population_ratio,
             year
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL
+        WHERE COALESCE(city_population, population) IS NOT NULL
         ORDER BY annual_visitors DESC
         """
         return self.execute_query_df(query)
@@ -83,13 +83,13 @@ class DatabaseManager:
         query = """
         SELECT 
             museum_name,
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
             annual_visitors,
-            city_population,
+            COALESCE(city_population, population)     AS city_population,
             visitor_population_ratio
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL
+        WHERE COALESCE(city_population, population) IS NOT NULL
         ORDER BY annual_visitors DESC
         LIMIT ?
         """
@@ -99,16 +99,16 @@ class DatabaseManager:
         """Get cities ordered by population."""
         query = """
         SELECT 
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
-            city_population,
-            COUNT(*) as museum_count,
-            SUM(annual_visitors) as total_visitors,
-            AVG(annual_visitors) as avg_visitors
+            COALESCE(city_population, population)     AS city_population,
+            COUNT(*)                                  AS museum_count,
+            SUM(annual_visitors)                      AS total_visitors,
+            AVG(annual_visitors)                      AS avg_visitors
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL
-        GROUP BY city, country, city_population
-        ORDER BY city_population DESC
+        WHERE COALESCE(city_population, population) IS NOT NULL
+        GROUP BY COALESCE(city, city_museum), country, COALESCE(city_population, population)
+        ORDER BY COALESCE(city_population, population) DESC
         LIMIT ?
         """
         return self.execute_query_df(query, (limit,))
@@ -117,31 +117,32 @@ class DatabaseManager:
         """Get correlation statistics."""
         query = """
         SELECT 
-            COUNT(*) as total_records,
-            AVG(annual_visitors) as avg_visitors,
-            AVG(city_population) as avg_population,
-            AVG(visitor_population_ratio) as avg_ratio,
-            MIN(annual_visitors) as min_visitors,
-            MAX(annual_visitors) as max_visitors,
-            MIN(city_population) as min_population,
-            MAX(city_population) as max_population
+            COUNT(*)                                   AS total_records,
+            AVG(annual_visitors)                       AS avg_visitors,
+            AVG(COALESCE(city_population, population)) AS avg_population,
+            AVG(visitor_population_ratio)              AS avg_ratio,
+            MIN(annual_visitors)                       AS min_visitors,
+            MAX(annual_visitors)                       AS max_visitors,
+            MIN(COALESCE(city_population, population)) AS min_population,
+            MAX(COALESCE(city_population, population)) AS max_population
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL
+        WHERE COALESCE(city_population, population) IS NOT NULL
         """
         results = self.execute_query(query)
         return results[0] if results else {}
+
     
     def get_museums_by_country(self) -> pd.DataFrame:
         """Get museum statistics by country."""
         query = """
         SELECT 
             country,
-            COUNT(*) as museum_count,
-            SUM(annual_visitors) as total_visitors,
-            AVG(annual_visitors) as avg_visitors,
-            AVG(city_population) as avg_city_population
+            COUNT(*)                                   AS museum_count,
+            SUM(annual_visitors)                       AS total_visitors,
+            AVG(annual_visitors)                       AS avg_visitors,
+            AVG(COALESCE(city_population, population)) AS avg_city_population
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL AND country IS NOT NULL
+        WHERE COALESCE(city_population, population) IS NOT NULL AND country IS NOT NULL
         GROUP BY country
         ORDER BY total_visitors DESC
         """
@@ -152,12 +153,12 @@ class DatabaseManager:
         query = """
         SELECT 
             museum_name,
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
             annual_visitors,
             year
         FROM harmonized_data 
-        WHERE city_population IS NULL
+        WHERE COALESCE(city_population, population) IS NULL
         ORDER BY annual_visitors DESC
         """
         return self.execute_query_df(query)
@@ -167,13 +168,15 @@ class DatabaseManager:
         query = """
         SELECT 
             museum_name,
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
             annual_visitors,
-            city_population,
+            COALESCE(city_population, population)     AS city_population,
             visitor_population_ratio
         FROM harmonized_data 
-        WHERE museum_name LIKE ? OR city LIKE ? OR country LIKE ?
+        WHERE museum_name LIKE ? 
+           OR COALESCE(city, city_museum) LIKE ? 
+           OR country LIKE ?
         ORDER BY annual_visitors DESC
         """
         search_pattern = f"%{search_term}%"
@@ -237,16 +240,16 @@ class DatabaseManager:
         query = """
         SELECT 
             museum_name,
-            city,
+            COALESCE(city, city_museum)               AS city,
             country,
             annual_visitors,
-            city_population,
+            COALESCE(city_population, population)     AS city_population,
             visitor_population_ratio,
             year
         FROM harmonized_data 
-        WHERE city_population IS NOT NULL 
-        AND annual_visitors IS NOT NULL
-        AND visitor_population_ratio IS NOT NULL
+        WHERE COALESCE(city_population, population) IS NOT NULL 
+          AND annual_visitors IS NOT NULL
+          AND visitor_population_ratio IS NOT NULL
         ORDER BY annual_visitors DESC
         """
         return self.execute_query_df(query)
