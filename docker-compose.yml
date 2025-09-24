@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  museum-analytics:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./museum_analytics:/workspace/museum_analytics
+      - ./data:/workspace/data
+      - ./models:/workspace/models
+      - ./plots:/workspace/plots
+    environment:
+      - PYTHONPATH=/workspace
+    command: >
+      bash -c "
+        cd /workspace &&
+        echo 'Starting Museum Analytics Jupyter Lab...' &&
+        echo 'Access the notebook at: http://localhost:8888' &&
+        echo 'Running data extraction and analysis...' &&
+        python -c '
+        import sys
+        sys.path.append(\"/workspace/museum_analytics/src\")
+        from data_extraction.wikipedia_scraper import WikipediaMuseumScraper
+        from data_extraction.population_data import PopulationDataExtractor
+        from data_processing.harmonizer import DataHarmonizer
+        from models.regression_model import MuseumRegressionModel
+        
+        print(\"Extracting museum data...\")
+        scraper = WikipediaMuseumScraper()
+        museums = scraper.extract_museum_data()
+        if museums:
+            scraper.save_to_csv(museums, \"/workspace/data/museum_data.csv\")
+            print(f\"Extracted {len(museums)} museums\")
+            
+            print(\"Extracting population data...\")
+            pop_extractor = PopulationDataExtractor()
+            cities = list(set([m[\"city\"] for m in museums]))
+            pop_data = pop_extractor.get_city_population_data(cities)
+            if pop_data:
+                pop_extractor.save_to_csv(pop_data, \"/workspace/data/city_population.csv\")
+                print(f\"Extracted population for {len(pop_data)} cities\")
+                
+                print(\"Harmonizing data...\")
+                harmonizer = DataHarmonizer(\"/workspace/data/museum_analytics.db\")
+                harmonized = harmonizer.harmonize_data(\"/workspace/data/museum_data.csv\", \"/workspace/data/city_population.csv\")
+                if not harmonized.empty:
+                    print(f\"Harmonized {len(harmonized)} records\")
+                    
+                    print(\"Training model...\")
+                    model = MuseumRegressionModel(\"/workspace/models/museum_regression_model.pkl\")
+                    metrics = model.train(\"/workspace/data/harmonized_museum_data.csv\")
+                    if \"error\" not in metrics:
+                        print(f\"Model trained successfully. R²: {metrics[\"test_r2\"]:.4f}\")
+                        model.create_visualizations(\"/workspace/data/harmonized_museum_data.csv\", \"/workspace/plots\")
+                        print(\"Analysis complete!\")
+                    else:
+                        print(f\"Model training failed: {metrics[\"error\"]}\")
+                else:
+                    print(\"Data harmonization failed\")
+            else:
+                print(\"Population data extraction failed\")
+        else:
+            print(\"Museum data extraction failed\")
+        ' &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token="" --NotebookApp.password=""
+      "
